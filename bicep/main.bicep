@@ -283,7 +283,7 @@ var kmsRbacWaitSeconds=30
 @description('This indicates if the deploying user has provided their PrincipalId in order for the key to be created')
 var keyVaultKmsCreateAndPrereqs = keyVaultKmsCreate && !empty(keyVaultKmsOfficerRolePrincipalId) && privateLinks == false
 
-resource kvKmsByo 'Microsoft.KeyVault/vaults@2022-07-01' existing = if(!empty(keyVaultKmsByoName)) {
+resource kvKmsByo 'Microsoft.KeyVault/vaults@2023-07-01' existing = if(!empty(keyVaultKmsByoName)) {
   name: keyVaultKmsByoName
   scope: resourceGroup(keyVaultKmsByoRG)
 }
@@ -886,6 +886,9 @@ param fileCSIDriver bool = true
 @description('Enables the Disk CSI driver')
 param diskCSIDriver bool = true
 
+@description('Tags for the AKS Cluster and AKS Resources RG')
+param tags object
+
 @allowed([
   'none'
   'patch'
@@ -910,7 +913,7 @@ param agentVMSize string = 'Standard_D4ds_v5'
 param osDiskSizeGB int = 0
 
 @description('The number of agents for the user node pool')
-param agentCount int = 3
+param agentCount int = 3 //test
 
 @description('The maximum number of nodes for the user node pool')
 param agentCountMax int = 0
@@ -1005,7 +1008,7 @@ param AksPaidSkuForSLA bool = false
 @minLength(9)
 @maxLength(18)
 @description('The address range to use for pods')
-param podCidr string = '10.240.100.0/22'
+param podCidr string = '10.240.0.0/16'
 
 @minLength(9)
 @maxLength(18)
@@ -1295,7 +1298,7 @@ var aksProperties = union({
     #disable-next-line BCP036 //Disabling validation of this parameter to cope with empty string to indicate no Network Policy required.
     networkPolicy: networkPolicy
     networkPluginMode: networkPlugin=='azure' ? networkPluginMode : ''
-    podCidr: networkPlugin=='kubenet' || networkPluginMode=='Overlay' || cniDynamicIpAllocation ? podCidr : json('null')
+    podCidr: networkPlugin=='kubenet' || networkPluginMode=='Overlay' || cniDynamicIpAllocation ? podCidr : null
     serviceCidr: serviceCidr
     dnsServiceIP: dnsServiceIP
     outboundType: outboundTrafficType
@@ -1358,6 +1361,7 @@ resource aks 'Microsoft.ContainerService/managedClusters@2024-01-01' = {
     name: 'Base'
     tier: akssku
   }
+  tags: tags
   dependsOn: [
     privateDnsZoneRbac
     waitForKmsRbac
@@ -1684,6 +1688,8 @@ module aksmetricalerts './aksmetricalerts.bicep' = if (createLaw) {
 }
 
 //---------------------------------------------------------------------------------- Container Insights
+@description('Log Analytics Workspace Name')
+param logWorkspaceName string
 
 @description('The Log Analytics retention period')
 param retentionInDays int = 30
@@ -1691,7 +1697,7 @@ param retentionInDays int = 30
 @description('The Log Analytics daily data cap (GB) (0=no limit)')
 param logDataCap int = 0
 
-var aks_law_name = 'log-${resourceName}'
+var aks_law_name = logWorkspaceName
 
 var createLaw = (omsagent || deployAppGw || azureFirewalls || CreateNetworkSecurityGroups || defenderForContainers)
 
